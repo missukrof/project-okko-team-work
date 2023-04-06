@@ -1,4 +1,3 @@
-
 from models.lfm import LFMModel
 from models.ranker import Ranker
 
@@ -56,13 +55,14 @@ def get_recommendations(user_id: int):
     ranker_input = prepare_ranker_input(
         candidates = candidates,
         item_features = item_features,
-        user_features=user_features,
-        ranker_features_order=ranker.ranker.feature_names_
+        user_features = user_features,
+        ranker_features_order = ranker.ranker.feature_names_
         )
     preds = ranker.infer(ranker_input = ranker_input)
     output = dict(zip(candidates.keys(), preds))
 
     return output
+
 
 if __name__ == '__main__':
     print(get_recommendations(646903))

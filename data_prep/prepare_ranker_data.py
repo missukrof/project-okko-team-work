@@ -10,8 +10,9 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
     where we prepare data for classifier. In the end, it should work such
     that we trigger and use fit() method from ranker.py
 
-        paths_config: dict, wher key is path name and value is the path to data
+        paths_config: dict, where key is path name and value is the path to data
     """
+    # Нихера не поняла
     pass
 
 

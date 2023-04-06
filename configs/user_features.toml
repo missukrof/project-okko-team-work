@@ -1,1 +1,2 @@
+[USERS]
 USER_FEATURES = ["age", "income", "sex", "kids_flg"]
