@@ -5,11 +5,8 @@ Project in university on creating RecSys for Okko, mentored by <a href="https://
 <br>Aliya Rahimckulova
 <br><a href="https://github.com/PBspacey" target="_blank">Nikita Senyatkin</a>
 <br>Tigran Torosyan
-# Recommendations Handbook
-
 # Full RecSys Pipeline
 Here we have the full pipeline to train and make inference using two-level model architecture
-
 ## Repo Structure
 - /artefacts - local storage for models artefacts;
 - /data_prep - data preparation modules to be used during training_pipeline;
