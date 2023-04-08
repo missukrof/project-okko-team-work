@@ -1,5 +1,6 @@
-import pandas as pd
+import os
 import gdown
+import pandas as pd
 
 
 def read_csv_from_gdrive(url: str) -> pd.DataFrame:
@@ -11,13 +12,17 @@ def read_csv_from_gdrive(url: str) -> pd.DataFrame:
     # file_path = "https://drive.google.com/uc?export=download&id=" + file_id
     # data = pd.read_csv(file_path)
 
+    output_directory = f"{os.path.dirname(os.path.realpath(__file__))}/df.csv"
+
     data = pd.read_csv(
         gdown.download(
             url=url,
-            output='df.csv',
+            output=output_directory,
             quiet=True,
             fuzzy=True
         )
     )
+
+    os.remove(output_directory)
 
     return data
