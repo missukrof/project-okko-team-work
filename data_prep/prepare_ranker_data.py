@@ -13,8 +13,9 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
 
         paths_config: dict, where key is path name and value is the path to data
     """
-    from utils.utils import read_csv_from_gdrive
     import datetime as dt
+    from models.lfm import LFMModel
+    from utils.utils import read_csv_from_gdrive
 
     for k, v in paths_config.items():
         globals()[k.lower()[:-5]] = read_csv_from_gdrive(v)
@@ -44,6 +45,14 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
 
     # finally, we will focus on warm start -- remove cold start users
     local_test = local_test.loc[local_test['user_id'].isin(local_train['user_id'].unique())]
+    
+    lfm_model = LightFM()
+
+
+    # Now, we need to creat 0/1 as indication of interaction
+    # positive event -- 1, if watch_pct is not null
+    positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
+    positive_preds['target'] = 1
 
 
     # Нихера не поняла

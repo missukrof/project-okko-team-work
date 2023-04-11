@@ -1,14 +1,14 @@
 from configs.config import settings
 from data_prep.prepare_ranker_data import get_items_features
-from utils.utils import read_csv_from_gdrive
-
-INTERACTIONS_PATH = 'https://drive.google.com/file/d/1i6kmeJIUNJjqAa0vAvztFSDN3BFz9x1i/view?usp=share_link'
-ITEMS_METADATA_PATH = 'https://drive.google.com/file/d/12a80lS3vXQOl6i6ENgz-WqWw3Wms0nqB/view?usp=share_link'
-USERS_DATA_PATH = 'https://drive.google.com/file/d/1MwPaye0cRi53czLqCnH0bOuvIhOeNlAx/view?usp=share_link'
+from data_prep.prepare_lfm_data import prepare_data_for_train_lfm
+from models.lfm import LFMModel
 
 
-# interactions = read_csv_from_gdrive(INTERACTIONS_PATH)
-movies_metadata = read_csv_from_gdrive(ITEMS_METADATA_PATH)
-# users_data = read_csv_from_gdrive(USERS_DATA_PATH)
+print(settings.DATA)
+path_dict = settings.DATA
+print(path_dict.get('INTERACTIONS_PATH'))
 
-movies_metadata.set_index('item_id')[settings.item_features.ITEMS.ITEM_FEATURES].apply(lambda x: x.to_dict(), axis=1).to_dict()
+local_train, local_test = prepare_data_for_train_lfm(settings.DATA)
+
+lfm_model = LFMModel()
+lfm_model.fit(local_train, user_col='user_id', item_col='item_id')

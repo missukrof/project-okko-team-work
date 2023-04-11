@@ -26,7 +26,7 @@ class LFMModel:
         data: pd.DataFrame,
         user_col: str,
         item_col: str,
-        model_params: Dict[str, Any],
+        model_params: Dict[str, Any] = {},
     ) -> None:
         """
         Trains and saves model with mapper for further inference
