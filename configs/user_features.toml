@@ -1,5 +1,5 @@
-[FEATURES]
-USER_IDS = ['user_id']
+[USERS]
+USER_IDS = "user_id"
 USER_FEATURES = ["age", "income", "sex", "kids_flg"]
 
 [TARGET]

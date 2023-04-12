@@ -13,53 +13,98 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
 
         paths_config: dict, where key is path name and value is the path to data
     """
-    import datetime as dt
     from models.lfm import LFMModel
+    from data_prep.prepare_lfm_data import prepare_data_for_train_lfm
     from utils.utils import read_csv_from_gdrive
 
-    for k, v in paths_config.items():
-        globals()[k.lower()[:-5]] = read_csv_from_gdrive(v)
+    from sklearn.utils import shuffle
+    from sklearn.model_selection import train_test_split
 
-    # remove redundant data points
-    interactions_filtered = interactions.loc[interactions['total_dur'] > 300].reset_index(drop=True)
-    interactions_filtered['last_watch_dt'] = pd.to_datetime(interactions_filtered['last_watch_dt'])
+    # ИЗМЕНИТЬ НА ПЕРВОЕ РЕШЕНИЕ??
+    INTERACTIONS_PATH = paths_config.get('INTERACTIONS_PATH')
+    interactions = read_csv_from_gdrive(INTERACTIONS_PATH)
+    ITEMS_METADATA_PATH = paths_config.get('ITEMS_METADATA_PATH')
+    items_metadata = read_csv_from_gdrive(ITEMS_METADATA_PATH)
+    USERS_DATA_PATH = paths_config.get('USERS_DATA_PATH')
+    users_data = read_csv_from_gdrive(USERS_DATA_PATH)
 
-    # set dates params for filter
-    MAX_DATE = interactions_filtered['last_watch_dt'].max()
-    MIN_DATE = interactions_filtered['last_watch_dt'].min()
-    TEST_INTERVAL_DAYS = 14
-
-    TEST_MAX_DATE = MAX_DATE - dt.timedelta(days=TEST_INTERVAL_DAYS)
-
-    # define global train and test
-    global_train = interactions_filtered.loc[interactions_filtered['last_watch_dt'] < TEST_MAX_DATE]
-    global_test = interactions_filtered.loc[interactions_filtered['last_watch_dt'] >= TEST_MAX_DATE]
-
-    # now, we define "local" train and test to use some part of the global train for ranker
-    local_train_thresh = global_train['last_watch_dt'].quantile(q=.7, interpolation='nearest')
-
-    global_train = global_train.dropna().reset_index(drop=True)
-
-    local_train = global_train.loc[global_train['last_watch_dt'] < local_train_thresh]
-    local_test = global_train.loc[global_train['last_watch_dt'] >= local_train_thresh]
-
-    # finally, we will focus on warm start -- remove cold start users
-    local_test = local_test.loc[local_test['user_id'].isin(local_train['user_id'].unique())]
+    _, local_test = prepare_data_for_train_lfm(paths_config)
     
-    lfm_model = LightFM()
+    # let's make predictions for all users in test
+    test_preds = pd.DataFrame(columns=['user_id', 'item_id', 'rank'])
 
+    lfm_model = LFMModel()
+    for ind, id in enumerate(local_test['user_id'].unique().to_list()):
+        candidates = lfm_model.infer(user_id = id)
+        top_N = len(candidates)
+        test_preds_user = pd.DataFrame({'user_id': [id] * top_N, 'item_id': candidates.keys(), 'rank': candidates.values()})
+        test_preds_user.index = [ind] * top_N
+        test_preds = pd.concat([test_preds, test_preds_user])
 
     # Now, we need to creat 0/1 as indication of interaction
     # positive event -- 1, if watch_pct is not null
     positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
     positive_preds['target'] = 1
 
+    # negative venet -- 0 otherwise
+    negative_preds = pd.merge(test_preds, local_test, how = 'left', on = ['user_id', 'item_id'])
+    negative_preds = negative_preds.loc[negative_preds['watched_pct'].isnull()].sample(frac = .2)
+    negative_preds['target'] = 0
+
+    # random split to train ranker
+    train_users, test_users = train_test_split(
+        local_test['user_id'].unique(),
+        test_size = .2,
+        random_state = 13
+        )
+
+    cbm_train_set = shuffle(
+        pd.concat(
+        [positive_preds.loc[positive_preds['user_id'].isin(train_users)],
+        negative_preds.loc[negative_preds['user_id'].isin(train_users)]]
+        )
+    )
+
+    cbm_test_set = shuffle(
+        pd.concat(
+        [positive_preds.loc[positive_preds['user_id'].isin(test_users)],
+        negative_preds.loc[negative_preds['user_id'].isin(test_users)]]
+        )
+    )
+
+    # Подумать, как лучше задать не только фичи, но и айдишки !!!
+    USER_FEATURES = ['age', 'income', 'sex', 'kids_flg']
+    ITEM_FEATURES = ['content_type', 'release_year', 'for_kids', 'age_rating']
+
+    # joins user features
+    cbm_train_set = pd.merge(cbm_train_set, users_data[['user_id'] + USER_FEATURES],
+                            how = 'left', on = ['user_id'])
+    cbm_test_set = pd.merge(cbm_test_set, users_data[['user_id'] + USER_FEATURES],
+                            how = 'left', on = ['user_id'])
+
+    # joins item features
+    cbm_train_set = pd.merge(cbm_train_set, items_metadata[['item_id'] + ITEM_FEATURES],
+                            how = 'left', on = ['item_id'])
+    cbm_test_set = pd.merge(cbm_test_set, items_metadata[['item_id'] + ITEM_FEATURES],
+                            how = 'left', on = ['item_id'])
+
+    # Тоже подумать, как лучше задать !!!
+    ID_COLS = ['user_id', 'item_id']
+    TARGET = ['target']
+    CATEGORICAL_COLS = ['age', 'income', 'sex', 'content_type']
+    DROP_COLS = ['item_name', 'last_watch_dt', 'watched_pct', 'total_dur']
+
+    X_train, y_train = cbm_train_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_train_set[TARGET]
+    X_test, y_test = cbm_test_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_test_set[TARGET]
+
+    X_train = X_train.fillna(X_train.mode().iloc[0])
+    X_test = X_test.fillna(X_test.mode().iloc[0])
 
     # Нихера не поняла
-    pass
+    return X_train, X_test, y_train, y_test
 
 
-def get_items_features(df: pd.DataFrame, item_ids: str, item_cols: List[str]) -> Dict[int, Any]:
+def get_items_features(items_metadata_path: str, item_ids: List[str], item_ids_col: str, item_cols: List[str]) -> Dict[int, Any]:
     """
     function to get items features from our available data
     that we used in training (for all candidates)
@@ -84,12 +129,14 @@ def get_items_features(df: pd.DataFrame, item_ids: str, item_cols: List[str]) ->
     }
 
     """
-    item_features = df.set_index(item_ids)[item_cols].apply(lambda x: x.to_dict(), axis=1).to_dict()
+    from utils.utils import read_csv_from_gdrive
 
-    return item_features
+    items_metadata = read_csv_from_gdrive(items_metadata_path)
+
+    return items_metadata[items_metadata[item_ids_col].isin(item_ids)].set_index(item_ids_col)[item_cols].apply(lambda x: x.to_dict(), axis=1).to_dict()
 
 
-def get_user_features(df: pd.DataFrame, user_id: int, user_ids: str, user_cols: List[str]) -> Dict[str, Any]:
+def get_user_features(users_data_path: str, user_id: int, user_ids_col: str, user_cols: List[str]) -> Dict[str, Any]:
     """
     function to get user features from our available data
     that we used in training
@@ -104,8 +151,15 @@ def get_user_features(df: pd.DataFrame, user_id: int, user_ids: str, user_cols: 
         'kids_flg': None
     }
     """
-    user_features = df[df[user_ids] == user_id][user_cols].apply(lambda x: x.to_dict(), axis=1).values[0]
+    from utils.utils import read_csv_from_gdrive
 
+    users_data = read_csv_from_gdrive(users_data_path)
+
+    if users_data[users_data[user_ids_col] == user_id].shape[0] == 0:
+        user_features = dict(zip(user_cols, [None] * len(user_cols)))
+    else:
+        user_features = users_data[users_data[user_ids_col] == user_id][user_cols].apply(lambda x: x.to_dict(), axis=1).values[0]
+    
     return user_features
 
 
