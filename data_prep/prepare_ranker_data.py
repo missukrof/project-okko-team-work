@@ -2,6 +2,7 @@
 # WRITE PIPELINE FOR DATA PREPARATION IN HERE TO USE FOR RANKER TRAININIG PIPELINE
 import pandas as pd
 from typing import Any, Dict, List
+from configs.config import settings
 
 
 def prepare_data_for_train(paths_config: Dict[str, str]):
@@ -15,94 +16,64 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
     """
     from models.lfm import LFMModel
     from data_prep.prepare_lfm_data import prepare_data_for_train_lfm
-    from utils.utils import read_csv_from_gdrive
 
     from sklearn.utils import shuffle
     from sklearn.model_selection import train_test_split
+    from models.lfm import LFMModel
+    import dill
 
-    # ИЗМЕНИТЬ НА ПЕРВОЕ РЕШЕНИЕ??
-    INTERACTIONS_PATH = paths_config.get('INTERACTIONS_PATH')
-    interactions = read_csv_from_gdrive(INTERACTIONS_PATH)
-    ITEMS_METADATA_PATH = paths_config.get('ITEMS_METADATA_PATH')
-    items_metadata = read_csv_from_gdrive(ITEMS_METADATA_PATH)
-    USERS_DATA_PATH = paths_config.get('USERS_DATA_PATH')
-    users_data = read_csv_from_gdrive(USERS_DATA_PATH)
+    local_train, local_test = prepare_data_for_train_lfm(paths_config.DATA)
 
-    _, local_test = prepare_data_for_train_lfm(paths_config)
-    
-    # let's make predictions for all users in test
-    test_preds = pd.DataFrame(columns=['user_id', 'item_id', 'rank'])
 
-    lfm_model = LFMModel()
-    for ind, id in enumerate(local_test['user_id'].unique().to_list()):
-        candidates = lfm_model.infer(user_id = id)
-        top_N = len(candidates)
-        test_preds_user = pd.DataFrame({'user_id': [id] * top_N, 'item_id': candidates.keys(), 'rank': candidates.values()})
-        test_preds_user.index = [ind] * top_N
-        test_preds = pd.concat([test_preds, test_preds_user])
+    test_preds = pd.DataFrame({
+    'user_id': local_test['user_id'].unique()})
 
-    # Now, we need to creat 0/1 as indication of interaction
-    # positive event -- 1, if watch_pct is not null
-    positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
-    positive_preds['target'] = 1
+    mapper = LFMModel.generate_lightfm_recs_mapper( 
+    known_items = dict(),
+    N = 1,
+    user_features = None, 
+    item_features = None, 
+    num_threads = 4
+)
 
-    # negative venet -- 0 otherwise
-    negative_preds = pd.merge(test_preds, local_test, how = 'left', on = ['user_id', 'item_id'])
-    negative_preds = negative_preds.loc[negative_preds['watched_pct'].isnull()].sample(frac = .2)
-    negative_preds['target'] = 0
+    test_preds['item_id'] = test_preds['user_id'].map(mapper)
 
-    # random split to train ranker
-    train_users, test_users = train_test_split(
-        local_test['user_id'].unique(),
-        test_size = .2,
-        random_state = 13
-        )
+    test_preds = test_preds.explode('item_id')
 
-    cbm_train_set = shuffle(
-        pd.concat(
-        [positive_preds.loc[positive_preds['user_id'].isin(train_users)],
-        negative_preds.loc[negative_preds['user_id'].isin(train_users)]]
-        )
-    )
+     # positive event -- 1, if watch_pct is not null
+    # positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
+    # positive_preds['target'] = 1
 
-    cbm_test_set = shuffle(
-        pd.concat(
-        [positive_preds.loc[positive_preds['user_id'].isin(test_users)],
-        negative_preds.loc[negative_preds['user_id'].isin(test_users)]]
-        )
-    )
+    # # negative venet -- 0 otherwise
+    # negative_preds = pd.merge(test_preds, local_test, how = 'left', on = ['user_id', 'item_id'])
+    # negative_preds = negative_preds.loc[negative_preds['watched_pct'].isnull()].sample(frac = .2)
+    # negative_preds['target'] = 0
 
-    # Подумать, как лучше задать не только фичи, но и айдишки !!!
-    USER_FEATURES = ['age', 'income', 'sex', 'kids_flg']
-    ITEM_FEATURES = ['content_type', 'release_year', 'for_kids', 'age_rating']
+    # # random split to train ranker
+    # train_users, test_users = train_test_split(
+    #     local_test['user_id'].unique(),
+    #     test_size = .2,
+    #     random_state = 13
+    #     )
 
-    # joins user features
-    cbm_train_set = pd.merge(cbm_train_set, users_data[['user_id'] + USER_FEATURES],
-                            how = 'left', on = ['user_id'])
-    cbm_test_set = pd.merge(cbm_test_set, users_data[['user_id'] + USER_FEATURES],
-                            how = 'left', on = ['user_id'])
+    # cbm_train_set = shuffle(
+    #     pd.concat(
+    #     [positive_preds.loc[positive_preds['user_id'].isin(train_users)],
+    #     negative_preds.loc[negative_preds['user_id'].isin(train_users)]]
+    #     )
+    # )
 
-    # joins item features
-    cbm_train_set = pd.merge(cbm_train_set, items_metadata[['item_id'] + ITEM_FEATURES],
-                            how = 'left', on = ['item_id'])
-    cbm_test_set = pd.merge(cbm_test_set, items_metadata[['item_id'] + ITEM_FEATURES],
-                            how = 'left', on = ['item_id'])
+    # cbm_test_set = shuffle(
+    #     pd.concat(
+    #     [positive_preds.loc[positive_preds['user_id'].isin(test_users)],
+    #     negative_preds.loc[negative_preds['user_id'].isin(test_users)]]
+    #     )
+    # )
 
-    # Тоже подумать, как лучше задать !!!
-    ID_COLS = ['user_id', 'item_id']
-    TARGET = ['target']
-    CATEGORICAL_COLS = ['age', 'income', 'sex', 'content_type']
-    DROP_COLS = ['item_name', 'last_watch_dt', 'watched_pct', 'total_dur']
+    return test_preds
 
-    X_train, y_train = cbm_train_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_train_set[TARGET]
-    X_test, y_test = cbm_test_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_test_set[TARGET]
-
-    X_train = X_train.fillna(X_train.mode().iloc[0])
-    X_test = X_test.fillna(X_test.mode().iloc[0])
-
-    # Нихера не поняла
-    return X_train, X_test, y_train, y_test
-
+a = prepare_data_for_train(settings)
+print(a.shape)
 
 def get_items_features(items_metadata_path: str, item_ids: List[str], item_ids_col: str, item_cols: List[str]) -> Dict[int, Any]:
     """
