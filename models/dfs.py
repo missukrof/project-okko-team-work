@@ -24,9 +24,9 @@ item_inv_mapper = {v: k for k, v in mapperr[2].items()}
 with open(model_path, "rb") as model_file:
     lfm_model = dill.load(model_file)
 
-# print(mapperr)
+
 mapper = LFMModel.generate_lightfm_recs_mapper(
-    lfm_model,
+    model=lfm_model,
     item_ids=all_cols,
     known_items = dict(),
     N = 10,
@@ -35,12 +35,15 @@ mapper = LFMModel.generate_lightfm_recs_mapper(
     user_mapping = mapperr[0],
     item_inv_mapping = item_inv_mapper,
     num_threads = 4,
+    #model_path= "./artefacts/lfm_model.dill"
 )
 
 test_preds['item_id'] = test_preds['user_id'].map(mapper)
 
 test_preds = test_preds.explode('item_id')
 print(test_preds.shape)
+
+
 
 
 

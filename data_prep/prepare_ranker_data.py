@@ -16,65 +16,105 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
     """
     from models.lfm import LFMModel
     from data_prep.prepare_lfm_data import prepare_data_for_train_lfm
-
+    from utils.utils import read_csv_from_gdrive
     from sklearn.utils import shuffle
     from sklearn.model_selection import train_test_split
     from models.lfm import LFMModel
     import dill
 
     local_train, local_test = prepare_data_for_train_lfm(paths_config.DATA)
-
-
+    users_data = read_csv_from_gdrive(settings.DATA.USERS_DATA_PATH)
+    movies_metadata = read_csv_from_gdrive(settings.DATA.ITEMS_METADATA_PATH)
     test_preds = pd.DataFrame({
         'user_id': local_test['user_id'].unique()
     })
 
-    mapper = LFMModel.generate_lightfm_recs_mapper( 
-    known_items = dict(),
-    N = 1,
-    user_features = None, 
-    item_features = None, 
-    num_threads = 4
-)
+    model_path = "./artefacts/lfm_model.dill" 
+
+    with open("./artefacts/lfm_mapper.dill", "rb") as mapper_file:
+                dataset = dill.load(mapper_file)
+    mapperr = dataset.mapping()
+
+    all_cols = list(mapperr[2].values())
+    item_inv_mapper = {v: k for k, v in mapperr[2].items()}
+    item_name_mapper = dict(zip(movies_metadata['item_id'], movies_metadata['title']))
+
+    with open(model_path, "rb") as model_file:
+        lfm_model = dill.load(model_file)
+
+
+    mapper = LFMModel.generate_lightfm_recs_mapper(
+        model=lfm_model,
+        item_ids=all_cols,
+        known_items = dict(),
+        N = 10,
+        user_features = None, 
+        item_features = None,
+        user_mapping = mapperr[0],
+        item_inv_mapping = item_inv_mapper,
+        num_threads = 4,
+    #model_path= "./artefacts/lfm_model.dill"
+    )
 
     test_preds['item_id'] = test_preds['user_id'].map(mapper)
 
     test_preds = test_preds.explode('item_id')
+    test_preds['rank'] = test_preds.groupby('user_id').cumcount() + 1 
 
-     # positive event -- 1, if watch_pct is not null
-    # positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
-    # positive_preds['target'] = 1
+    test_preds['item_name'] = test_preds['item_id'].map(item_name_mapper)
 
-    # # negative venet -- 0 otherwise
-    # negative_preds = pd.merge(test_preds, local_test, how = 'left', on = ['user_id', 'item_id'])
-    # negative_preds = negative_preds.loc[negative_preds['watched_pct'].isnull()].sample(frac = .2)
-    # negative_preds['target'] = 0
+    positive_preds = pd.merge(test_preds, local_test, how = 'inner', on = ['user_id', 'item_id'])
+    positive_preds['target'] = 1
 
-    # # random split to train ranker
-    # train_users, test_users = train_test_split(
-    #     local_test['user_id'].unique(),
-    #     test_size = .2,
-    #     random_state = 13
-    #     )
+    negative_preds = pd.merge(test_preds, local_test, how = 'left', on = ['user_id', 'item_id'])
+    negative_preds = negative_preds.loc[negative_preds['watched_pct'].isnull()].sample(frac = .2)
+    negative_preds['target'] = 0
 
-    # cbm_train_set = shuffle(
-    #     pd.concat(
-    #     [positive_preds.loc[positive_preds['user_id'].isin(train_users)],
-    #     negative_preds.loc[negative_preds['user_id'].isin(train_users)]]
-    #     )
-    # )
+    train_users, test_users = train_test_split(
+    local_test['user_id'].unique(),
+    test_size = .2,
+    random_state = 13
+    )
 
-    # cbm_test_set = shuffle(
-    #     pd.concat(
-    #     [positive_preds.loc[positive_preds['user_id'].isin(test_users)],
-    #     negative_preds.loc[negative_preds['user_id'].isin(test_users)]]
-    #     )
-    # )
+    cbm_train_set = shuffle(
+    pd.concat(
+    [positive_preds.loc[positive_preds['user_id'].isin(train_users)],
+    negative_preds.loc[negative_preds['user_id'].isin(train_users)]]
+    ))
 
-    return test_preds
+    cbm_test_set = shuffle(
+    pd.concat(
+    [positive_preds.loc[positive_preds['user_id'].isin(test_users)],
+    negative_preds.loc[negative_preds['user_id'].isin(test_users)]]
+    ))
 
-a = prepare_data_for_train(settings)
-print(a.shape)
+    # USER_FEATURES = settings.ITEMS.ITEM_FEATURES
+    # ITEM_FEATURES = settings.USERS.USER_FEATURES
+
+    USER_FEATURES = ['age', 'income', 'sex', 'kids_flg']
+    ITEM_FEATURES = ['content_type', 'release_year', 'for_kids', 'age_rating']  
+
+
+    cbm_train_set = pd.merge(cbm_train_set, users_data[['user_id'] + USER_FEATURES],
+                         how = 'left', on = ['user_id'])
+    cbm_test_set = pd.merge(cbm_test_set, users_data[['user_id'] + USER_FEATURES],
+                        how = 'left', on = ['user_id'])
+    
+    cbm_train_set = pd.merge(cbm_train_set, movies_metadata[['item_id'] + ITEM_FEATURES],
+                         how = 'left', on = ['item_id'])
+    cbm_test_set = pd.merge(cbm_test_set, movies_metadata[['item_id'] + ITEM_FEATURES],
+                        how = 'left', on = ['item_id'])
+    
+    # в томл
+    ID_COLS = ['user_id', 'item_id']
+    TARGET = ['target']
+    CATEGORICAL_COLS = ['age', 'income', 'sex', 'content_type']
+    DROP_COLS = ['item_name', 'last_watch_dt', 'watched_pct', 'total_dur']
+
+    X_train, y_train = cbm_train_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_train_set[TARGET]
+    X_test, y_test = cbm_test_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_test_set[TARGET]
+    
+    return X_train, y_train, X_test, y_test
 
 def get_items_features(items_metadata_path: str, item_ids: List[str], item_ids_col: str, item_cols: List[str]) -> Dict[int, Any]:
     """
