@@ -101,25 +101,30 @@ class LFMModel:
     
     @staticmethod
     def generate_lightfm_recs_mapper(
+        model: object,
+        item_ids: list,
         known_items: dict,
         user_features: list,
         item_features: list,
+        user_mapping,
+        item_inv_mapping,
         N: int,
         num_threads: int = 4,
-        model_path: str = "./artefacts/lfm_model.dill"
+        # model_path: str = "./artefacts/lfm_model.dill"
         ):
         def _recs_mapper(user):
-            # method to create rekkos for all users
-            with open(model_path, "rb") as model_file:
-                model = dill.load(model_file)
 
-            with open("./artefacts/lfm_mapper.dill", "rb") as mapper_file:
-                dataset = dill.load(mapper_file)
-            mapper = dataset.mapping()
+            # with open(model_path, "rb") as model_file:
+            #     model = dill.load(model_file)
+            
+            # with open("./artefacts/lfm_mapper.dill", "rb") as mapper_file:
+            #     dataset = dill.load(mapper_file)
 
-            item_inv_mapper = {v: k for k, v in mapper[2].items()}
-            user_mapping = mapper[0]
-            item_ids = list(mapper[2].values())
+            # mapper = dataset.mapping()
+
+            # user_mapping = mapper[0]
+            # item_inv_mapping = {v: k for k, v in mapper[2].items()}
+            # item_ids = list(mapper[2].values())
 
             user_id = user_mapping[user]
             recs = model.predict(
@@ -133,7 +138,7 @@ class LFMModel:
             total_N = N + additional_N
             top_cols = np.argpartition(recs, -np.arange(total_N))[-total_N:][::-1]
         
-            final_recs = [item_inv_mapper[item] for item in top_cols]
+            final_recs = [item_inv_mapping[item] for item in top_cols]
             if additional_N > 0:
                 filter_items = known_items[user_id]
                 final_recs = [item for item in final_recs if item not in filter_items]

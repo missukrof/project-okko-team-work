@@ -26,7 +26,8 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
 
 
     test_preds = pd.DataFrame({
-    'user_id': local_test['user_id'].unique()})
+        'user_id': local_test['user_id'].unique()
+    })
 
     mapper = LFMModel.generate_lightfm_recs_mapper( 
     known_items = dict(),
