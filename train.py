@@ -21,6 +21,9 @@ lfm_model.fit(
 
 
 X_train, y_train, X_test, y_test = prepare_data_for_train(settings)
+
+
+# в конфиг
 ranker_params = {
         "loss_function": "CrossEntropy",
         "iterations": 5000,
@@ -28,14 +31,15 @@ ranker_params = {
         "depth": 6,
         "random_state": 1234,
         "verbose": True}
-
-
+# в конфиг
+cat_features = [2, 3, 4, 6]
 ranker_model = Ranker()
 ranker_model.fit(
     X_train,
     y_train,
     X_test,
     y_test, 
-    ranker_params=ranker_params
+    ranker_params=ranker_params,
+    categorical_cols = cat_features
 )
 

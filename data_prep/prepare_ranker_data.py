@@ -25,6 +25,8 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
     local_train, local_test = prepare_data_for_train_lfm(paths_config.DATA)
     users_data = read_csv_from_gdrive(settings.DATA.USERS_DATA_PATH)
     movies_metadata = read_csv_from_gdrive(settings.DATA.ITEMS_METADATA_PATH)
+
+    # Вот отсюда
     test_preds = pd.DataFrame({
         'user_id': local_test['user_id'].unique()
     })
@@ -55,7 +57,8 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
         num_threads = 4,
     #model_path= "./artefacts/lfm_model.dill"
     )
-
+    # До сюда нужно переделать код в более приятный и без бесконечного количества аргументов в этом файле и в соответствующем методе lfm
+    
     test_preds['item_id'] = test_preds['user_id'].map(mapper)
 
     test_preds = test_preds.explode('item_id')
@@ -113,6 +116,14 @@ def prepare_data_for_train(paths_config: Dict[str, str]):
 
     X_train, y_train = cbm_train_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_train_set[TARGET]
     X_test, y_test = cbm_test_set.drop(ID_COLS + DROP_COLS + TARGET, axis = 1), cbm_test_set[TARGET]
+
+    X_train = X_train.fillna(X_train.mode().iloc[0])
+    X_test = X_test.fillna(X_test.mode().iloc[0])
+
+    X_train['age'] = X_train['age'].astype(object)
+    X_test['age'] = X_test['age'].astype(object)
+    y_test['age'] = y_test['age'].astype(object)
+    y_train['age'] = y_train['age'].astype(object)
     
     return X_train, y_train, X_test, y_test
 

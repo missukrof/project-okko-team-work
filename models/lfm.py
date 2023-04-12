@@ -98,7 +98,7 @@ class LFMModel:
         final_preds = {v: k + 1 for k, v in enumerate(item_pred_ids)}
 
         return final_preds
-    
+    #в методе ниже убрать некоторые аргументы, связанные с моделью и маппером
     @staticmethod
     def generate_lightfm_recs_mapper(
         model: object,
