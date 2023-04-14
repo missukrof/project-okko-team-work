@@ -1,0 +1,13 @@
+[USERS]
+USER_IDS = "user_id"
+USER_FEATURES = ["age", "income", "sex", "kids_flg"]
+
+[ITEMS]
+ITEM_IDS = "item_id"
+ITEM_FEATURES = ["content_type", "release_year", "for_kids", "age_rating"]
+
+[PREPROCESS]
+DROP_FEATURES = ['last_watch_dt', 'watched_pct', 'total_dur']
+
+[TARGET_USER]
+TARGET_USER_ID = 962099
