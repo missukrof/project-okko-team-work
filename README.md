@@ -6,7 +6,11 @@ Project in university on creating RecSys for Okko, mentored by <a href="https://
 * <a href="https://github.com/PBspacey" target="_blank">Nikita Senyatkin</a>
 * Tigran Torosyan
 # 🔗 Full RecSys Pipeline
-Here we have the full pipeline to train and make inference using two-level model architecture
+Here we have the full pipeline to train and make inference using two-level model architecture.
+Original code sources: 
+* <a href="https://github.com/sharthZ23/your-second-recsys/blob/master/lecture_5/tutorial_hybrid_model.ipynb" target="_blank">Tutorial on a two-stage model</a>
+* <a href="https://www.kaggle.com/code/sharthz23/implicit-lightfm/notebook" target="_blank">Implicit&LightFM</a>
+* <a href="https://github.com/kshurik/rekkobook/blob/main/notebook_drafts/full_recsys_pipeline.ipynb" target="_blank">Full RecSys pipeline</a>
 ## 📁 Repo Structure
 - <a href="https://github.com/missukrof/project-okko-team-work/tree/main/artefacts" target="_blank">artefacts</a> - local storage for models artefacts;
 - <a href="https://github.com/missukrof/project-okko-team-work/tree/main/configs" target="_blank">data_prep</a> - data preparation modules to be used during training_pipeline;
