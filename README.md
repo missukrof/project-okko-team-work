@@ -8,7 +8,10 @@ Project in university on creating RecSys for Okko, mentored by <a href="https://
 # 🔗 Full RecSys Pipeline
 Here we have the full pipeline to train and make inference using two-level model architecture
 ## 📁 Repo Structure
-- /artefacts - local storage for models artefacts;
-- /data_prep - data preparation modules to be used during training_pipeline;
-- /models - model fit and inference pipeline
-- /utils - some common functions thatn can be used everywhere
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/artefacts" target="_blank">artefacts</a> - local storage for models artefacts;
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/configs" target="_blank">data_prep</a> - data preparation modules to be used during training_pipeline;
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/models" target="_blank">models</a> - model fit and inference pipeline;
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/utils" target="_blank">utils</a> - some common functions thatn can be used everywhere.
+## ‍💻 Basic files
+- <a href="https://github.com/missukrof/project-okko-team-work/blob/main/train.py" target="_blank">train.py</a> - two-stage model training (the first level - LightFM, the second - CatBoost classifier);
+- <a href="https://github.com/missukrof/project-okko-team-work/blob/main/inference.py" target="_blank">inference.py</a> - get recommendations from two-stage model for a particular user.
