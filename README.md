@@ -14,7 +14,8 @@ Here we have the full pipeline to train and make inference using two-level model
 * <a href="https://github.com/kshurik/rekkobook/blob/main/notebook_drafts/full_recsys_pipeline.ipynb" target="_blank">Full RecSys pipeline</a>
 ## 📁 Repo Structure
 - <a href="https://github.com/missukrof/project-okko-team-work/tree/main/artefacts" target="_blank">artefacts</a> - local storage for models artefacts;
-- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/configs" target="_blank">data_prep</a> - data preparation modules to be used during training_pipeline;
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/configs" target="_blank">configs</a> - local storage for the configuration files;
+- <a href="https://github.com/missukrof/project-okko-team-work/tree/main/data_prep" target="_blank">data_prep</a> - data preparation modules to be used during training_pipeline;
 - <a href="https://github.com/missukrof/project-okko-team-work/tree/main/models" target="_blank">models</a> - model fit and inference pipeline;
 - <a href="https://github.com/missukrof/project-okko-team-work/tree/main/utils" target="_blank">utils</a> - some common functions thatn can be used everywhere.
 ## ‍💻 Basic files
