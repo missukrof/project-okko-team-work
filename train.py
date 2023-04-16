@@ -12,12 +12,12 @@ local_train, local_test = prepare_data_for_train_lfm(
 )
 
 # init and train LFMModel model
-# lfm_model = LFMModel()
-# lfm_model.fit(
-#     local_train,
-#     user_col=settings.USERS.USER_IDS,
-#     item_col=settings.ITEMS.ITEM_IDS
-# )
+lfm_model = LFMModel()
+lfm_model.fit(
+    local_train,
+    user_col=settings.USERS.USER_IDS,
+    item_col=settings.ITEMS.ITEM_IDS
+)
 
 # form local X_train / X_test / y_train / y_test sets for ranker (CatBoostClassifier) training
 X_train, X_test, y_train, y_test = prepare_data_for_train(
